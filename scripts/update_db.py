@@ -18,8 +18,9 @@ import json
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from fetch_jobs import ROOT, make_id, norm_url  # noqa: E402
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, ROOT)
+from jobscan.sources import make_id, norm_url  # noqa: E402
 
 FIELDS = ["id", "company", "role", "location", "experience", "stack", "comp", "source",
           "link", "posted_at", "first_seen", "status", "notes"]
@@ -33,7 +34,7 @@ def main():
         decisions = json.load(f)
     with open(cand_path, encoding="utf-8") as f:
         c = json.load(f)
-    pool = {p["id"]: p for k in ("candidates", "needs_review", "excluded") for p in c.get(k, [])}
+    pool = {p["id"]: p for k in ("match", "review", "excluded") for p in c.get(k, [])}
     with open(db_path, encoding="utf-8") as f:
         db = json.load(f)
     ids = {e["id"] for e in db}

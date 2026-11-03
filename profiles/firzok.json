@@ -1,0 +1,50 @@
+{
+  "name": "firzok",
+  "description": "Frontend/fullstack, mid/senior, <=8 yrs. Worldwide remote first, then Europe/Asia/EMEA or Germany remote, then Berlin onsite/hybrid. Patterns are case-insensitive regex fragments.",
+
+  "max_age_hours": 48,
+  "source_lag_hours": { "remotive": 24 },
+
+  "title": {
+    "include": ["front[\\s-]?end", "full[\\s-]?stack", "\\breact\\b", "typescript", "javascript", "next\\.?js", "\\bvue", "angular", "\\bweb (engineer|developer)", "software engineer,? web", "\\bui engineer", "product engineer"],
+    "generic": ["software (engineer|developer)", "\\bswe\\b"],
+    "generic_requires": ["\\breact\\b", "typescript", "next\\.?js", "\\bvue", "angular", "svelte"],
+    "exclude": ["\\bdata (engineer|scientist)", "machine learning", "\\bml\\b", "devops", "\\bsre\\b", "site reliability", "security", "\\bqa\\b", "\\btest", "android", "\\bios\\b", "embedded", "firmware", "manager", "designer", "recruit", "sales", "support", "analyst", "working student", "werkstudent", "praktik"],
+    "exclude_unless": ["front", "full"]
+  },
+
+  "seniority": {
+    "exclude": ["\\b(staff|principal|lead|head|director|vp|vice president|architect|distinguished|chief|cto)\\b", "tech lead", "team lead"],
+    "ignore": ["\\b(junior|jr\\.?|entry[\\s-]level|graduate|new grad|intern|internship|trainee|apprentice)\\b"]
+  },
+
+  "employment": { "exclude": ["contract", "freelance", "part[\\s-]?time", "temporary", "internship", "werkstudent", "minijob"] },
+
+  "backend_only": { "pattern": "back[\\s-]?end", "unless": "front|full" },
+
+  "tech": {
+    "exclude_title": ["\\.net\\b", "\\bc#", "asp\\.net", "\\bphp\\b", "laravel", "symfony", "wordpress", "magento", "drupal", "blazor"],
+    "exclude_desc": ["\\.net\\b", "\\bc#", "asp\\.net", "\\bphp\\b", "laravel", "symfony", "wordpress", "magento", "drupal", "blazor"],
+    "prefer_desc": ["\\breact\\b", "typescript", "next\\.?js", "\\bvue", "angular", "svelte", "node\\.?js", "javascript"],
+    "desc_min_hits": 3
+  },
+
+  "max_years": 8,
+
+  "location": {
+    "remote_words": ["remote", "distributed", "home[\\s-]?office", "work from home", "\\bwfh\\b"],
+    "accept": [
+      { "name": "Berlin", "match": ["berlin"], "priority": 3, "priority_if_remote": 2 },
+      { "name": "worldwide remote", "match": ["anywhere", "worldwide", "world[\\s-]?wide", "\\bglobal(ly)?\\b", "work from anywhere", "all countries", "no (location|geo(graphic)?) restriction"], "priority": 1 },
+      { "name": "remote Germany", "match": ["germany", "deutschland"], "requires_remote": true, "priority": 2 },
+      { "name": "broad-region remote", "match": ["europe", "\\beu\\b", "emea", "\\bcet\\b", "cest", "european", "asia", "apac", "eastern hemisphere"], "priority": 2 }
+    ],
+    "reject": [
+      { "name": "remote limited to the Americas", "match": ["americas", "latam", "latin america", "north america", "south america"] }
+    ],
+    "countries": ["us", "usa", "u\\.s\\.a?\\.?", "united states", "canada", "uk", "u\\.k\\.", "united kingdom", "england", "ireland", "france", "spain", "portugal", "italy", "netherlands", "poland", "romania", "germany", "brazil", "brasil", "mexico", "argentina", "colombia", "chile", "india", "pakistan", "philippines", "australia", "new zealand", "singapore", "japan", "israel", "turkey", "ukraine", "sweden", "denmark", "norway", "finland", "switzerland", "austria", "belgium", "czech", "hungary", "greece", "bulgaria", "serbia", "croatia", "estonia", "latvia", "lithuania", "nigeria", "kenya", "south africa", "egypt", "uae", "dubai", "saudi", "vietnam", "indonesia", "malaysia", "thailand", "korea", "china", "hong kong", "taiwan"],
+    "cities": ["new york", "nyc", "san francisco", "seattle", "austin", "boston", "chicago", "los angeles", "denver", "toronto", "london", "paris", "amsterdam", "madrid", "barcelona", "lisbon", "dublin", "warsaw", "stockholm", "munich", "hamburg", "cologne", "frankfurt", "zurich", "vienna", "tel aviv", "bangalore", "bengaluru"],
+    "desc_hint": ["anywhere in the world", "worldwide", "work from anywhere", "fully distributed"],
+    "unknown": "review"
+  }
+}

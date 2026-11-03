@@ -2,10 +2,12 @@
 
 Run the daily fresh-jobs scan in this repo (firzok/daily-job-scan). Nobody is watching this run.
 
-1. `python3 -I scripts/fetch_jobs.py` from the repo root. It writes `out/candidates.json`
-   (summary, candidates, needs_review, excluded). If it exits non-zero or `sources_ok` is 0,
+1. `python3 -I scripts/fetch_jobs.py` from the repo root. It fetches every posting from all
+   sources into `out/postings.json`, newest first. If it exits non-zero or `sources_ok` is 0,
    send a PushNotification saying the run failed and why (include `failed_sources`), then stop.
-2. Review every entry in `candidates` and `needs_review` against the criteria in README.md.
+   Then `python3 -I scripts/filter_jobs.py --profile profiles/firzok.json`, which writes
+   `out/candidates.json` (summary, match, review, excluded), skipping anything already logged.
+2. Review every entry in `match` and `review` against the criteria in README.md.
    Read the description (open the posting URL only if the description is missing). Drop
    false positives. For `needs_review`, decide reported or excluded; leave nothing undecided.
 3. Write `out/decisions.json` (format in `scripts/update_db.py`): every confirmed match as

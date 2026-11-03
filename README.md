@@ -10,8 +10,16 @@ RemoteOK, We Work Remotely, Arbeitnow, Himalayas, HN "Who is hiring").
   id = lowercase slug of `company-role`.
 - `data/companies.json`: ATS slugs to poll, grouped by ATS. Grows automatically when the
   scan finds ATS links in aggregator postings.
-- `scripts/fetch_jobs.py`: fetch, filter (48h window, title, seniority, tech, location),
-  dedupe by id and URL, write `out/candidates.json`.
+Two independent steps, so the filter can change (or come from a user profile in ApplyX)
+without touching the fetch code:
+
+1. `scripts/fetch_jobs.py` (`jobscan/sources.py`): fetch every posting from every source,
+   normalize, sort newest first, write `out/postings.json`. No filtering.
+2. `scripts/filter_jobs.py --profile profiles/firzok.json` (`jobscan/filters.py`): apply a
+   JSON profile (age limit, title, seniority, employment type, tech, years, location rules
+   with priorities), dedupe against the log, write `out/candidates.json` with match /
+   review / excluded. `--max-age-hours` overrides the profile's age limit.
+- `scripts/report.py`: print candidates as a Markdown table.
 - `scripts/update_db.py`: append reviewed decisions to the log.
 - `scripts/render_page.py`: build the read-only display page (last 30 days + totals).
 - `ROUTINE.md`: the daily routine prompt.
