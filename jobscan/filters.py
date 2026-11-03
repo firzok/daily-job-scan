@@ -79,7 +79,13 @@ class Profile:
 YEARS_RE = re.compile(r"(\d{1,2})\s*\+?\s*(?:-|–|to)?\s*(\d{1,2})?\s*\+?\s*years?", re.I)
 
 
+NUM_WORDS = {"two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8,
+             "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "fifteen": 15}
+NUM_WORDS_RE = re.compile(r"\b(" + "|".join(NUM_WORDS) + r")\b(?=\s*\+?\s*(?:\(\d+\)\s*)?years?)", re.I)
+
+
 def required_years(desc):
+    desc = NUM_WORDS_RE.sub(lambda m: str(NUM_WORDS[m.group(1).lower()]), desc[:8000])
     yrs = []
     for m in YEARS_RE.finditer(desc[:8000]):
         ctx = desc[max(0, m.start() - 40): m.end() + 40].lower()

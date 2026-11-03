@@ -281,9 +281,11 @@ def src_hn(f, _=None):
         if str(h.get("parent_id")) != str(story["objectID"]):
             continue  # replies, not postings
         text = strip_html(h.get("comment_text", ""))
-        first = text.split(" | ")
-        out.append(P(source="hn", slug="hn", company=first[0][:60], title=text[:160],
-                     location=" | ".join(first[1:4])[:160], url=f"https://news.ycombinator.com/item?id={h['objectID']}",
+        # Convention: "Company | Role(s) | Location | Type | ..." on the first line
+        seg = [x.strip() for x in text[:400].split("|")]
+        out.append(P(source="hn", slug="hn", company=seg[0][:60],
+                     title=(seg[1] if len(seg) > 1 else text)[:160],
+                     location=(" | ".join(seg[2:4]) if len(seg) > 2 else "")[:160], url=f"https://news.ycombinator.com/item?id={h['objectID']}",
                      posted=parse_date(h.get("created_at")), date_field="created_at", description=text,
                      date_note="HN comment; title/location parsed heuristically"))
     return out
