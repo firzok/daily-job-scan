@@ -1,0 +1,60 @@
+name: Daily job fetch
+
+# Fetch every posting from every source, then push the compact 30-day set into
+# ApplyX's shared job_postings table. Free on a public repo (standard runner).
+on:
+  schedule:
+    - cron: "0 5 * * *"   # 05:00 UTC daily; GitHub may start it a few minutes late
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build rows but send nothing to Supabase"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write   # commit data/companies.json when new boards are discovered
+
+concurrency:
+  group: daily-fetch
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Unit tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Fetch all sources
+        run: python -I scripts/fetch_jobs.py
+
+      - name: Push to Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            python -I scripts/push_supabase.py --dry-run
+          else
+            python -I scripts/push_supabase.py
+          fi
+
+      - name: Commit new boards (and a monthly heartbeat)
+        # GitHub disables schedules in public repos after 60 days without a commit, so
+        # on the 1st of each month this also records the last run date.
+        run: |
+          if [ "$(date -u +%d)" = "01" ]; then date -u +%F > data/last-run.txt; fi
+          git add data/companies.json data/last-run.txt
+          if git diff --cached --quiet; then echo "nothing to commit"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Daily fetch: new job boards / heartbeat"
+          git push

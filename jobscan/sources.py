@@ -2,7 +2,7 @@
 normalize it to one shape. No filtering happens here beyond the time window.
 
 Normalized posting fields:
-  id, source, slug, company, title, location, remote (bool|None), url,
+  id, source, slug, external_id, company, title, location, remote (bool|None), url,
   posted_at (ISO UTC), date_field, date_note, description, comp, employment, age_hours
 """
 import concurrent.futures as cf
@@ -103,6 +103,9 @@ def P(**kw):
     kw.setdefault("employment", "")
     kw.setdefault("date_note", "")
     kw.setdefault("description", "")
+    kw["listing_url"] = kw.get("listing_url") or kw.get("url", "")
+    eid = kw.get("external_id")
+    kw["external_id"] = "" if eid in (None, "") else str(eid)
     d = kw.get("posted")
     kw["posted_at"] = d.isoformat() if d else None
     kw.pop("posted", None)
@@ -117,7 +120,7 @@ def src_greenhouse(f, slug, eu=False):
         fp = parse_date(j.get("first_published"))
         up = parse_date(j.get("updated_at"))
         posted, field, note = (fp, "first_published", "") if fp else (up, "updated_at", "updated_at changes on edits; real post date may be older")
-        out.append(P(source="greenhouse", slug=slug, company=j.get("company_name") or slug,
+        out.append(P(source="greenhouse", slug=slug, external_id=j.get("id"), company=j.get("company_name") or slug,
                      title=j.get("title", ""), location=(j.get("location") or {}).get("name", ""),
                      url=j.get("absolute_url", ""), posted=posted, date_field=field, date_note=note,
                      description=strip_html(j.get("content", ""))))
@@ -133,7 +136,7 @@ def src_ashby(f, slug):
         locs = [j.get("location") or ""] + [s.get("location", "") for s in j.get("secondaryLocations") or []]
         addr = ((j.get("address") or {}).get("postalAddress") or {})
         comp = (j.get("compensation") or {}).get("compensationTierSummary") or (j.get("compensation") or {}).get("scrapeableCompensationSalarySummary") or ""
-        out.append(P(source="ashby", slug=slug, company=slug, title=j.get("title", ""),
+        out.append(P(source="ashby", slug=slug, external_id=j.get("id"), company=slug, title=j.get("title", ""),
                      location=" | ".join(x for x in locs if x) or addr.get("addressCountry", ""),
                      remote=j.get("isRemote"), url=j.get("jobUrl", ""),
                      posted=parse_date(j.get("publishedAt")), date_field="publishedAt",
@@ -151,7 +154,7 @@ def src_lever(f, slug, eu=False):
         locs = cat.get("allLocations") or [cat.get("location", "")]
         sr = j.get("salaryRange") or {}
         comp = f"{sr.get('currency','')} {sr.get('min','')}-{sr.get('max','')} {sr.get('interval','')}".strip() if sr else ""
-        out.append(P(source="lever", slug=slug, company=slug, title=j.get("text", ""),
+        out.append(P(source="lever", slug=slug, external_id=j.get("id"), company=slug, title=j.get("text", ""),
                      location=" | ".join(l for l in locs if l), remote=(j.get("workplaceType") == "remote") or None,
                      url=j.get("hostedUrl", ""), posted=parse_date(j.get("createdAt")), date_field="createdAt",
                      description=j.get("descriptionPlain", "") + " " + strip_html(" ".join(l.get("content", "") for l in j.get("lists", []))),
@@ -164,7 +167,7 @@ def src_workable(f, slug):
     out = []
     for j in data.get("jobs", []):
         loc = ", ".join(x for x in [j.get("city"), j.get("country")] if x)
-        out.append(P(source="workable", slug=slug, company=data.get("name") or slug, title=j.get("title", ""),
+        out.append(P(source="workable", slug=slug, external_id=j.get("shortcode"), company=data.get("name") or slug, title=j.get("title", ""),
                      location=loc, remote=j.get("telecommuting"), url=j.get("url") or j.get("application_url", ""),
                      posted=parse_date(j.get("published_on") or j.get("created_at")), date_field="published_on",
                      description=strip_html(j.get("description", "")), employment=j.get("employment_type", "")))
@@ -175,7 +178,7 @@ def src_recruitee(f, slug):
     data = f.get(f"https://{slug}.recruitee.com/api/offers/")
     out = []
     for j in data.get("offers", []):
-        out.append(P(source="recruitee", slug=slug, company=j.get("company_name") or slug, title=j.get("title", ""),
+        out.append(P(source="recruitee", slug=slug, external_id=j.get("id"), company=j.get("company_name") or slug, title=j.get("title", ""),
                      location=j.get("location", ""), remote=j.get("remote"), url=j.get("careers_url", ""),
                      posted=parse_date(j.get("published_at") or j.get("created_at")), date_field="published_at",
                      description=strip_html(j.get("description", "") + " " + j.get("requirements", "")),
@@ -197,7 +200,7 @@ def _rss(xml, source, slug, company=None):
         comp_name = company
         if source == "weworkremotely" and ":" in title:  # "Company: Role"
             comp_name, title = [x.strip() for x in title.split(":", 1)]
-        out.append(P(source=source, slug=slug, company=comp_name or "", title=title,
+        out.append(P(source=source, slug=slug, external_id=g("guid") or g("link"), company=comp_name or "", title=title,
                      location=g("region") or g("{http://www.w3.org/2005/Atom}location") or g("location"),
                      url=g("link"), posted=parse_date(g("pubDate")), date_field="pubDate",
                      description=strip_html(g("description")), employment=g("type")))
@@ -213,7 +216,7 @@ def src_wwr(f, _=None):
 
 def src_remotive(f, _=None):
     data = f.get("https://remotive.com/api/remote-jobs?category=software-dev&limit=300")
-    return [P(source="remotive", slug="remotive", company=j.get("company_name", ""), title=j.get("title", ""),
+    return [P(source="remotive", slug="remotive", external_id=j.get("id"), company=j.get("company_name", ""), title=j.get("title", ""),
               location=j.get("candidate_required_location", ""), remote=True, url=j.get("url", ""),
               posted=parse_date(j.get("publication_date")), date_field="publication_date",
               description=strip_html(j.get("description", "")), comp=j.get("salary", ""),
@@ -225,8 +228,8 @@ def src_remoteok(f, _=None):
     out = []
     for j in data[1:] if isinstance(data, list) else []:  # first item is legal notice
         comp = f"${j['salary_min']}-{j['salary_max']}" if j.get("salary_min") else ""
-        out.append(P(source="remoteok", slug="remoteok", company=j.get("company", ""), title=j.get("position", ""),
-                     location=j.get("location", ""), remote=True, url=j.get("apply_url") or j.get("url", ""),
+        out.append(P(source="remoteok", slug="remoteok", external_id=j.get("id"), company=j.get("company", ""), title=j.get("position", ""),
+                     location=j.get("location", ""), remote=True, url=j.get("apply_url") or j.get("url", ""), listing_url=j.get("url", ""),
                      posted=parse_date(j.get("epoch") or j.get("date")), date_field="epoch",
                      description=strip_html(j.get("description", "")) + " tags: " + ", ".join(j.get("tags") or []),
                      comp=comp))
@@ -239,7 +242,7 @@ def src_arbeitnow(f, _=None):
     for _page in range(3):
         data = f.get(url)
         for j in data.get("data", []):
-            out.append(P(source="arbeitnow", slug="arbeitnow", company=j.get("company_name", ""), title=j.get("title", ""),
+            out.append(P(source="arbeitnow", slug="arbeitnow", external_id=j.get("slug"), company=j.get("company_name", ""), title=j.get("title", ""),
                          location=j.get("location", ""), remote=j.get("remote"), url=j.get("url", ""),
                          posted=parse_date(j.get("created_at")), date_field="created_at",
                          description=strip_html(j.get("description", "")),
@@ -258,9 +261,9 @@ def src_himalayas(f, _=None):
         locs = j.get("locationRestrictions") or []
         comp = f"{j.get('currency','')} {j.get('minSalary')}-{j.get('maxSalary')}" if j.get("minSalary") else ""
         posted = parse_date(j.get("pubDate")) or parse_date(j.get("updatedAt"))
-        out.append(P(source="himalayas", slug="himalayas", company=j.get("companyName", ""), title=j.get("title", ""),
+        out.append(P(source="himalayas", slug="himalayas", external_id=j.get("guid"), company=j.get("companyName", ""), title=j.get("title", ""),
                      location=", ".join(locs) if locs else "Worldwide", remote=True,
-                     url=j.get("applicationLink") or j.get("guid", ""), posted=posted,
+                     url=j.get("applicationLink") or j.get("guid", ""), listing_url=j.get("guid", ""), posted=posted,
                      date_field="pubDate" if j.get("pubDate") else "updatedAt",
                      date_note="" if j.get("pubDate") else "updatedAt may be newer than the post date",
                      description=strip_html(j.get("description", "") or j.get("excerpt", "")),
@@ -283,7 +286,7 @@ def src_hn(f, _=None):
         text = strip_html(h.get("comment_text", ""))
         # Convention: "Company | Role(s) | Location | Type | ..." on the first line
         seg = [x.strip() for x in text[:400].split("|")]
-        out.append(P(source="hn", slug="hn", company=seg[0][:60],
+        out.append(P(source="hn", slug="hn", external_id=h["objectID"], company=seg[0][:60],
                      title=(seg[1] if len(seg) > 1 else text)[:160],
                      location=(" | ".join(seg[2:4]) if len(seg) > 2 else "")[:160], url=f"https://news.ycombinator.com/item?id={h['objectID']}",
                      posted=parse_date(h.get("created_at")), date_field="created_at", description=text,
