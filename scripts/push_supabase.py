@@ -53,7 +53,7 @@ def pick_window(db_bytes):
 
 def build_rows(postings, window_days, now):
     cutoff = now - dt.timedelta(days=window_days)
-    rows, skipped = {}, {"excluded_source": 0, "too_old": 0, "no_url": 0}
+    rows, skipped, bad = {}, {"excluded_source": 0, "too_old": 0, "no_url": 0}, {}
     for p in postings:
         if p.get("source") in EXCLUDED_SOURCES:
             skipped["excluded_source"] += 1
@@ -65,9 +65,15 @@ def build_rows(postings, window_days, now):
         if d and d < cutoff:
             skipped["too_old"] += 1
             continue
-        r = to_row(p)
+        # One posting with an unexpected field shape (a source API returning something
+        # other than what the adapter assumed) must not take down the whole push.
+        try:
+            r = to_row(p)
+        except Exception as e:
+            bad[f"{p.get('source')}:{p.get('slug')}"] = f"{type(e).__name__}: {e}"
+            continue
         rows[(r["source"], r["external_id"])] = r  # last one wins on a repeated key
-    return list(rows.values()), skipped
+    return list(rows.values()), skipped, bad
 
 
 def main():
@@ -90,9 +96,9 @@ def main():
         sb = Supabase(url, key)
     status = sb.rpc("job_feed_status", {}) if sb else {"db_bytes": 0, "open_postings": 0}
     window = a.window_days or pick_window(status.get("db_bytes") or 0)
-    rows, skipped = build_rows(data["postings"], window, now)
+    rows, skipped, bad = build_rows(data["postings"], window, now)
     approx_kb = len(json.dumps(rows, ensure_ascii=False).encode()) // 1024
-    print(f"window {window}d, {len(rows)} rows (~{approx_kb} KB), skipped {skipped}, db {status}")
+    print(f"window {window}d, {len(rows)} rows (~{approx_kb} KB), skipped {skipped}, bad {bad}, db {status}")
     if a.dry_run:
         return 0
 
@@ -109,6 +115,7 @@ def main():
         "run_at": summary.get("run_at") or now.isoformat(), "window_days": window,
         "sources_ok": summary.get("sources_ok"), "sources_failed": summary.get("sources_failed"),
         "failed_sources": summary.get("failed_sources", {}), "dead_slugs": summary.get("dead_slugs", []),
+        "bad_postings": bad,
         "rows_sent": len(rows), **totals, "closed": pruned.get("closed", 0), "deleted": pruned.get("deleted", 0),
         "db_bytes": after.get("db_bytes"), "open_postings": after.get("open_postings"),
     }
