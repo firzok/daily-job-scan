@@ -109,7 +109,7 @@ class Personio(unittest.TestCase):
 class Breezy(unittest.TestCase):
     def test_parses_list(self):
         payload = [{
-            "id": "xyz789", "name": "Staff Engineer", "type": "Full-Time",
+            "id": "xyz789", "name": "Staff Engineer", "type": {"id": "fullTime", "name": "Full-Time"},
             "location": {"name": "Remote", "is_remote": True},
             "published_date": "2026-03-01T00:00:00.000Z",
             "description": "<p>Join us.</p>",
@@ -121,6 +121,7 @@ class Breezy(unittest.TestCase):
         self.assertEqual(j["title"], "Staff Engineer")
         self.assertEqual(j["url"], "https://acme.breezy.hr/p/xyz789")
         self.assertTrue(j["remote"])
+        self.assertEqual(j["employment"], "Full-Time")
         self.assertIn("Join us.", j["description"])
 
 

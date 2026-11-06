@@ -262,7 +262,7 @@ def src_breezy(f, slug):
                      location=loc.get("name", ""), remote=loc.get("is_remote"),
                      url=f"https://{slug}.breezy.hr/p/{jid}" if jid else "",
                      posted=parse_date(j.get("published_date")), date_field="published_date",
-                     employment=j.get("type", ""), description=strip_html(j.get("description", ""))))
+                     employment=(j.get("type") or {}).get("name", ""), description=strip_html(j.get("description", ""))))
     return out
 
 

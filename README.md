@@ -45,20 +45,21 @@ SmartRecruiters `releasedDate`, Personio `createdAt`, Breezy `published_date`, J
 BambooHR's public listing has no reliable post-date field at all (undated, sorts last).
 
 ## New-source caveat (SmartRecruiters, BambooHR, Personio, Breezy, Jobicy)
-These five were added from each platform's documented public response shape, but this repo's
-sandboxed dev environment could not reach any of the five hosts to verify live (egress was
-blocked), so none of them were confirmed against a real response before merging -- only against
-hand-built fixtures in `tests/test_sources.py` that match the documented shape. A bad field
-name fails safe (that one source is marked `ok: false` in the run's `failed_sources` for that
-day; nothing else breaks, nothing bad gets pushed), but double-check the first real
-`daily-fetch` run's summary output (or run `python3 -I scripts/fetch_jobs.py --sources
-smartrecruiters,bamboohr,personio,breezy,jobicy` locally) before trusting them long-term.
-SmartRecruiters' and BambooHR's list endpoints don't return a full description (no per-job
-snippet/tech-tag enrichment from those two); BambooHR also has no date field. No company
-slugs were seeded for these four ATS kinds (unlike the others) since guessing real companies'
-ATS slugs without a way to verify them felt worse than leaving it to `discover_slugs`, which
-now also recognizes smartrecruiters.com / bamboohr.com / personio.de / breezy.hr links and
-will grow the list organically the same way it already does for the rest.
+These five were added from each platform's documented public response shape, sight-unseen at
+the time (the dev sandbox couldn't reach any of the five hosts). Once real companies got seeded
+and the first live fetch ran: SmartRecruiters, Personio, and Jobicy matched the assumed shape
+and are fetching real postings cleanly. Breezy didn't -- its `type` field is a nested
+`{id, name}` object, not the plain string the adapter assumed, which crashed `employment_type()`
+and (before `build_rows` wrapped `to_row` per-posting in a try/except) took down the *entire*
+Supabase push, not just Breezy's own rows. Both are now fixed: the adapter reads `type.name`,
+and one posting with an unexpected shape from any source is now skipped and counted in
+`bad_postings` instead of failing the whole run. BambooHR still has zero seeded companies (no
+real traffic yet to have confirmed or disproved anything), and its list endpoint -- like
+SmartRecruiters' -- doesn't return a full description (no per-job snippet/tech-tag enrichment
+from those two); BambooHR also has no date field. No slugs were seeded directly for any of the
+four ATS kinds here, relying on `discover_slugs` instead, which also recognizes
+smartrecruiters.com / bamboohr.com / personio.de / breezy.hr links and grows the list
+organically the same way it already does for the rest.
 Also worth checking before relying on Jobicy day to day: Remotive is excluded from the ApplyX
 push specifically over its redistribution terms (see `scripts/push_supabase.py`) despite also
 being a public API, so "publicly documented" alone isn't a guarantee Jobicy's terms allow this
