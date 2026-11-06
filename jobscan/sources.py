@@ -184,7 +184,7 @@ def src_recruitee(f, slug):
         out.append(P(source="recruitee", slug=slug, external_id=j.get("id"), company=j.get("company_name") or slug, title=j.get("title", ""),
                      location=j.get("location", ""), remote=j.get("remote"), url=j.get("careers_url", ""),
                      posted=parse_date(j.get("published_at") or j.get("created_at")), date_field="published_at",
-                     description=strip_html(j.get("description", "") + " " + j.get("requirements", "")),
+                     description=strip_html((j.get("description") or "") + " " + (j.get("requirements") or "")),
                      employment=j.get("employment_type_code", "")))
     return out
 
