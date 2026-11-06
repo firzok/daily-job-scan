@@ -112,9 +112,12 @@ def P(**kw):
     return kw
 
 
-def src_greenhouse(f, slug, eu=False):
-    host = "boards-api.eu.greenhouse.io" if eu else "boards-api.greenhouse.io"
-    data = f.get(f"https://{host}/v1/boards/{slug}/jobs?content=true")
+def src_greenhouse(f, slug):
+    # Greenhouse's "EU-hosted" distinction is only a thing for the public job-board
+    # viewer domain (job-boards.eu.greenhouse.io); boards-api.eu.greenhouse.io does
+    # not exist (confirmed: NXDOMAIN on a real runner, while every one of those same
+    # slugs resolves fine on the plain API host below) -- there's only one API host.
+    data = f.get(f"https://boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true")
     out = []
     for j in data.get("jobs", []):
         fp = parse_date(j.get("first_published"))
@@ -384,7 +387,6 @@ def src_hn(f, _=None):
 
 ATS = {
     "greenhouse": lambda f, s: src_greenhouse(f, s),
-    "greenhouse_eu": lambda f, s: src_greenhouse(f, s, eu=True),
     "ashby": src_ashby,
     "lever": lambda f, s: src_lever(f, s),
     "lever_eu": lambda f, s: src_lever(f, s, eu=True),
@@ -448,7 +450,7 @@ def finalize(postings, now=None):
 
 
 ATS_LINK = re.compile(
-    r"(?:job-boards|boards)(\.eu)?\.greenhouse\.io/(?:embed/job_board\?for=)?([\w.-]+)"
+    r"(?:job-boards|boards)(?:\.eu)?\.greenhouse\.io/(?:embed/job_board\?for=)?([\w.-]+)"
     r"|jobs\.ashbyhq\.com/([\w.%-]+)"
     r"|jobs(\.eu)?\.lever\.co/([\w.-]+)"
     r"|apply\.workable\.com/([\w-]+)"
@@ -465,8 +467,8 @@ def discover_slugs(postings, companies):
     added = []
     for p in postings:
         for m in ATS_LINK.finditer(p.get("url", "") + " " + p.get("description", "")[:20000]):
-            gh_eu, gh, ash, lv_eu, lv, wk, sr, bh, pe, bz = m.groups()
-            for kind, slug in (("greenhouse_eu" if gh_eu else "greenhouse", gh), ("ashby", ash),
+            gh, ash, lv_eu, lv, wk, sr, bh, pe, bz = m.groups()
+            for kind, slug in (("greenhouse", gh), ("ashby", ash),
                                ("lever_eu" if lv_eu else "lever", lv), ("workable", wk),
                                ("smartrecruiters", sr), ("bamboohr", bh), ("personio", pe), ("breezy", bz)):
                 if not slug or slug.lower() in ("jobs", "embed", "api", "v1", "www"):
