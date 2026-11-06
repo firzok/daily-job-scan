@@ -191,6 +191,78 @@ def src_teamtailor(f, slug):
     return _rss(xml, "teamtailor", slug, company=slug)
 
 
+def src_smartrecruiters(f, slug):
+    """Public, keyless Postings API meant for external job-board syndication. The list
+    endpoint has no full description (only /postings/{id} does, one call per job), so
+    these postings carry a title/location snippet only -- flagged via date_note."""
+    out = []
+    url = f"https://api.smartrecruiters.com/v1/companies/{urllib.parse.quote(slug)}/postings?limit=100"
+    for _page in range(3):
+        data = f.get(url)
+        for j in data.get("content", []):
+            loc = j.get("location") or {}
+            location = ", ".join(x for x in [loc.get("city"), loc.get("region"), loc.get("country")] if x)
+            out.append(P(source="smartrecruiters", slug=slug, external_id=j.get("id"),
+                         company=(j.get("company") or {}).get("name") or slug, title=j.get("name", ""),
+                         location=location, remote=loc.get("remote"),
+                         url=j.get("postingUrl") or j.get("applyUrl", ""),
+                         posted=parse_date(j.get("releasedDate")), date_field="releasedDate",
+                         employment=(j.get("typeOfEmployment") or {}).get("label", ""),
+                         date_note="SmartRecruiters' list endpoint has no full description"))
+        total, offset, limit = data.get("totalFound", 0), data.get("offset", 0), data.get("limit", 100)
+        if offset + limit >= total:
+            break
+        url = f"https://api.smartrecruiters.com/v1/companies/{urllib.parse.quote(slug)}/postings?limit={limit}&offset={offset + limit}"
+    return out
+
+
+def src_bamboohr(f, slug):
+    """Public JSON behind BambooHR's own hosted careers-page widget. No reliable posted
+    date at this list level (undated postings sort last; see finalize())."""
+    data = f.get(f"https://{urllib.parse.quote(slug)}.bamboohr.com/careers/list")
+    out = []
+    for j in data.get("result", []):
+        jid = j.get("id")
+        out.append(P(source="bamboohr", slug=slug, external_id=jid, company=slug,
+                     title=j.get("jobOpeningName", ""), location=j.get("locationLabel", ""),
+                     remote=j.get("isRemote"), url=f"https://{slug}.bamboohr.com/careers/{jid}" if jid else "",
+                     employment=j.get("employmentStatusLabel", ""),
+                     date_note="BambooHR's list endpoint has no posted-date field"))
+    return out
+
+
+def src_personio(f, slug):
+    """Public XML job feed Personio exposes for every tenant's careers page."""
+    xml = f.get(f"https://{urllib.parse.quote(slug)}.jobs.personio.de/xml", kind="xml")
+    root = ET.fromstring(xml)
+    out = []
+    for pos in root.findall("position"):
+        g = lambda t: (pos.findtext(t) or "").strip()  # noqa: E731
+        pid = g("id")
+        desc = " ".join((d.findtext("jobDescriptionValue") or "") for d in pos.findall(".//jobDescription"))
+        out.append(P(source="personio", slug=slug, external_id=pid, company=slug,
+                     title=g("name"), location=g("office"),
+                     url=f"https://{slug}.jobs.personio.de/job/{pid}" if pid else "",
+                     posted=parse_date(g("createdAt")), date_field="createdAt",
+                     employment=g("employmentType"), description=strip_html(desc)))
+    return out
+
+
+def src_breezy(f, slug):
+    """Public JSON Breezy HR exposes for every tenant's hosted job board."""
+    data = f.get(f"https://{urllib.parse.quote(slug)}.breezy.hr/json")
+    out = []
+    for j in data if isinstance(data, list) else []:
+        loc = j.get("location") or {}
+        jid = j.get("id") or j.get("friendly_id")
+        out.append(P(source="breezy", slug=slug, external_id=jid, company=slug, title=j.get("name", ""),
+                     location=loc.get("name", ""), remote=loc.get("is_remote"),
+                     url=f"https://{slug}.breezy.hr/p/{jid}" if jid else "",
+                     posted=parse_date(j.get("published_date")), date_field="published_date",
+                     employment=j.get("type", ""), description=strip_html(j.get("description", ""))))
+    return out
+
+
 def _rss(xml, source, slug, company=None):
     out = []
     root = ET.fromstring(xml)
@@ -271,6 +343,22 @@ def src_himalayas(f, _=None):
     return out
 
 
+def src_jobicy(f, _=None):
+    """Jobicy publishes this API specifically for external aggregation (documented,
+    no key needed) -- same posture as Remotive/RemoteOK, which are already in BOARDS."""
+    data = f.get("https://jobicy.com/api/v2/remote-jobs?count=50")
+    out = []
+    for j in data.get("jobs", []):
+        comp = (f"{j.get('salaryCurrency', '')} {j.get('annualSalaryMin', '')}-{j.get('annualSalaryMax', '')}".strip()
+                if j.get("annualSalaryMin") else "")
+        out.append(P(source="jobicy", slug="jobicy", external_id=j.get("id"), company=j.get("companyName", ""),
+                     title=j.get("jobTitle", ""), location=j.get("jobGeo", ""), remote=True,
+                     url=j.get("url", ""), posted=parse_date(j.get("pubDate")), date_field="pubDate",
+                     description=strip_html(j.get("jobDescription") or j.get("jobExcerpt", "")),
+                     comp=comp, employment=", ".join(j.get("jobType") or [])))
+    return out
+
+
 def src_hn(f, _=None):
     """Latest 'Ask HN: Who is hiring?' thread; each top-level comment is a posting."""
     s = f.get("https://hn.algolia.com/api/v1/search_by_date?tags=story,author_whoishiring&hitsPerPage=5")
@@ -303,9 +391,13 @@ ATS = {
     "workable": src_workable,
     "recruitee": src_recruitee,
     "teamtailor": src_teamtailor,
+    "smartrecruiters": src_smartrecruiters,
+    "bamboohr": src_bamboohr,
+    "personio": src_personio,
+    "breezy": src_breezy,
 }
 BOARDS = {"remotive": src_remotive, "remoteok": src_remoteok, "weworkremotely": src_wwr,
-          "arbeitnow": src_arbeitnow, "himalayas": src_himalayas, "hn": src_hn}
+          "arbeitnow": src_arbeitnow, "himalayas": src_himalayas, "hn": src_hn, "jobicy": src_jobicy}
 
 
 
@@ -355,7 +447,17 @@ def finalize(postings, now=None):
     return out
 
 
-ATS_LINK = re.compile(r"(?:job-boards|boards)(\.eu)?\.greenhouse\.io/(?:embed/job_board\?for=)?([\w.-]+)|jobs\.ashbyhq\.com/([\w.%-]+)|jobs(\.eu)?\.lever\.co/([\w.-]+)|apply\.workable\.com/([\w-]+)", re.I)
+ATS_LINK = re.compile(
+    r"(?:job-boards|boards)(\.eu)?\.greenhouse\.io/(?:embed/job_board\?for=)?([\w.-]+)"
+    r"|jobs\.ashbyhq\.com/([\w.%-]+)"
+    r"|jobs(\.eu)?\.lever\.co/([\w.-]+)"
+    r"|apply\.workable\.com/([\w-]+)"
+    r"|jobs\.smartrecruiters\.com/([\w.-]+)"
+    r"|([\w-]+)\.bamboohr\.com"
+    r"|([\w-]+)\.jobs\.personio\.(?:de|com)"
+    r"|([\w-]+)\.breezy\.hr",
+    re.I,
+)
 
 
 def discover_slugs(postings, companies):
@@ -363,10 +465,11 @@ def discover_slugs(postings, companies):
     added = []
     for p in postings:
         for m in ATS_LINK.finditer(p.get("url", "") + " " + p.get("description", "")[:20000]):
-            gh_eu, gh, ash, lv_eu, lv, wk = m.groups()
+            gh_eu, gh, ash, lv_eu, lv, wk, sr, bh, pe, bz = m.groups()
             for kind, slug in (("greenhouse_eu" if gh_eu else "greenhouse", gh), ("ashby", ash),
-                               ("lever_eu" if lv_eu else "lever", lv), ("workable", wk)):
-                if not slug or slug.lower() in ("jobs", "embed", "api", "v1"):
+                               ("lever_eu" if lv_eu else "lever", lv), ("workable", wk),
+                               ("smartrecruiters", sr), ("bamboohr", bh), ("personio", pe), ("breezy", bz)):
+                if not slug or slug.lower() in ("jobs", "embed", "api", "v1", "www"):
                     continue
                 slug = slug if kind == "ashby" else slug.lower()
                 lst = companies.setdefault(kind, [])
