@@ -4,7 +4,7 @@ name: Daily job fetch
 # ApplyX's shared job_postings table. Free on a public repo (standard runner).
 on:
   schedule:
-    - cron: "0 5 * * *"   # 05:00 UTC daily; GitHub may start it a few minutes late
+    - cron: "0 5,17 * * *"   # 05:00 and 17:00 UTC, every 12h; GitHub may start it a few minutes late
   workflow_dispatch:
     inputs:
       dry_run:

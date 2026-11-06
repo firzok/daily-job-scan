@@ -25,7 +25,7 @@ without touching the fetch code:
    upsert into ApplyX's shared `job_postings` table. Needs `SUPABASE_URL` and
    `SUPABASE_SECRET_KEY`; `--dry-run` sends nothing. Remotive and Workable are left out
    (Remotive's terms forbid showing its jobs behind a signup; Workable rate-limits us).
-   `.github/workflows/daily-fetch.yml` runs steps 1 and 3 every day at 05:00 UTC.
+   `.github/workflows/daily-fetch.yml` runs steps 1 and 3 every 12h, at 05:00 and 17:00 UTC.
 - `scripts/report.py`: print candidates as a Markdown table.
 - `scripts/update_db.py`: append reviewed decisions to the log.
 - `scripts/render_page.py`: build the read-only display page (last 30 days + totals).
