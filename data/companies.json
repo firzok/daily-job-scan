@@ -195,6 +195,7 @@
     "termgrid",
     "veeva",
     "viabill",
+    "weloglobal.",
     "xsolla"
   ],
   "recruitee": [
@@ -211,5 +212,8 @@
     "n8n",
     "soda-data-nv",
     "valis-insights-1"
+  ],
+  "personio": [
+    "eventfirst"
   ]
 }
