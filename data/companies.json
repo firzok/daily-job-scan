@@ -46,6 +46,7 @@
     "finvari",
     "flip",
     "focused",
+    "footprint",
     "frontcareers",
     "g2i",
     "givecard",
@@ -356,5 +357,8 @@
   "breezy": [
     "jibble-group",
     "talentuch"
+  ],
+  "bamboohr": [
+    "dharmannstudios"
   ]
 }
